@@ -217,33 +217,12 @@ Veri seti boyutuna göre otomatik ayar:
 | 15K-50K     | 50    | 2e-4          | 0.1             |
 | 50K+        | 100   | 3e-4          | 0.05            |
 
-## 🤝 Katkıda Bulunma
 
-Katkılarınızı bekliyoruz! Lütfen şu adımları izleyin:
-
-1. Bu depoyu fork edin
-2. Feature branch oluşturun (`git checkout -b feature/AmazingFeature`)
-3. Değişikliklerinizi commit edin (`git commit -m 'Add some AmazingFeature'`)
-4. Branch'inizi push edin (`git push origin feature/AmazingFeature`)
-5. Pull Request açın
 
 ## 📝 Lisans
 
 Bu proje [LICENSE](LICENSE) dosyasında belirtilen lisans altında dağıtılmaktadır.
 
-## 👤 Yazar
-
-**Yusuf Çağan Ceylan**
-
-- GitHub: [@YusufCaganCeylan](https://github.com/YusufCaganCeylan)
-
-## 🙏 Teşekkürler
-
-- EFFORT paper ve implementasyonu
-- GenImage veri seti
-- PyTorch ve torchvision ekibi
-- Gradio kütüphanesi
-- Albumentations kütüphanesi
 
 ## 📚 Referanslar
 
@@ -252,34 +231,3 @@ Bu proje [LICENSE](LICENSE) dosyasında belirtilen lisans altında dağıtılmak
 - Attention Is All You Need (Transformer)
 - CLIP: Connecting Text and Images
 
-## ⚠️ Sorumluluk Reddi
-
-Bu araç yalnızca araştırma ve eğitim amaçlıdır. Herhangi bir kötüye kullanımdan kullanıcı sorumludur. Deepfake teknolojisinin etik kullanımını destekliyoruz.
-
-## 🐛 Bilinen Sorunlar ve Çözümler
-
-### Ses Dosyası Formatı
-- **Sorun:** Sadece `.wav` formatı desteklenir
-- **Çözüm:** Ses dosyanızı online dönüştürücüler veya ffmpeg ile WAV formatına çevirin:
-  ```bash
-  ffmpeg -i input.mp3 -ar 16000 output.wav
-  ```
-
-### GPU Bellek Hatası
-- **Sorun:** CUDA out of memory
-- **Çözüm:** `Video_train.py` içindeki `batch_size` değerini azaltın
-
-### Model Dosyaları Bulunamadı
-- **Sorun:** Model dosyaları (.pth) bulunamıyor
-- **Çözüm:** Model dosyalarını proje kök dizinine yerleştirin
-
-## 📞 İletişim ve Destek
-
-Sorularınız için:
-- GitHub Issues kullanın
-- Pull request gönderin
-- Projeyi yıldızlayarak destekleyin ⭐
-
----
-
-**Not:** Bu proje aktif geliştirme aşamasındadır. Yeni özellikler ve iyileştirmeler düzenli olarak eklenmektedir.

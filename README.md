@@ -60,10 +60,8 @@ pip install -r requirements.txt
 ```
 
 ### 4. Model Dosyalarını İndirin
-Modelleri aşağıdaki konumlara yerleştirin:
-- `image_model.pth` - Görsel tespit modeli
-- `video_model.pth` - Video tespit modeli
-- `audio_model.pth` - Ses tespit modeli
+Model Dosyalarını Aşağıdaki Bağlantıdan İndirebilirsini:
+https://drive.google.com/drive/folders/1bF6xN905j95U1yEFL5UhfhPaORtY5Lm-?usp=sharing 
 
 ## 💻 Kullanım
 

@@ -1,6 +1,6 @@
 # AI-BUSTER 🔍
 
-**AI-BUSTER**, yapay zeka tarafından üretilen içerikleri (deepfake) tespit etmek için geliştirilmiş kapsamlı bir platformdur. Görsel, video ve ses dosyalarını analiz ederek içeriğin AI tarafından üretilip üretilmediğini yüksek doğrulukla belirler.
+**AI-BUSTER**, yapay zekâ tarafından üretilen içerikleri (deepfake) tespit etmek için geliştirilmiş kapsamlı bir platformdur. Görsel, video ve ses dosyalarını analiz ederek içeriğin AI tarafından üretilip üretilmediğini yüksek doğrulukla belirler.
 
 ![AI-BUSTER Logo](logo.jpeg)
 

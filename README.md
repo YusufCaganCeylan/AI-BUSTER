@@ -1,231 +1,251 @@
-# AI-BUSTER 🔍
+<div align="center">
 
-**AI-BUSTER**, yapay zekâ tarafından üretilen içerikleri (deepfake) tespit etmek için geliştirilmiş kapsamlı bir platformdur. Görsel, video ve ses dosyalarını analiz ederek içeriğin AI tarafından üretilip üretilmediğini yüksek doğrulukla belirler.
+<img src="logo.jpg" width="90" style="border-radius:16px;" />
 
-![AI-BUSTER Logo](logo.jpeg)
+# AI-BUSTER
 
-## 🌟 Özellikler
+**Çok Modlu Yapay Zeka İçerik Tespit Sistemi**
 
-### 📸 Görsel Tespit (Image Detection)
-- **EFFORT (EFficient rObust deepFake detecTor)** modeli kullanımı
-- CLIP-RN50 backbone ile transfer learning
-- GenImage veri seti üzerinde eğitilmiş
-- Yüksek doğruluk oranı ile AI-generated görsel tespiti
+[![HuggingFace Demo](https://img.shields.io/badge/🤗%20Demo-AI--BUSTER%20Spaces-FFD21E?style=for-the-badge)](https://huggingface.co/spaces/AI-BUSTER/AI-BUSTER)
+[![HuggingFace Models](https://img.shields.io/badge/🤗%20Models-AI--BUSTER__Models-FFD21E?style=for-the-badge)](https://huggingface.co/AI-BUSTER/AI-BUSTER_Models)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
 
-### 🎬 Video Tespit (Video Detection)
-- **EfficientNet-B3** tabanlı uzamsal özellik çıkarımı
-- **Transformer Encoder** ile zamansal modelleme
-- Optical flow analizi ile hareket tutarsızlıklarını tespit
-- Frekans analizi (DCT) ile sıkıştırma artefaktlarını belirleme
-- Multi-head attention pooling
+*Ses · Görsel · Video · Metin — tek arayüzde dört modda gerçek zamanlı deepfake tespiti*
 
-### 🎵 Ses Tespit (Audio Detection)
-- **LFCC (Linear Frequency Cepstral Coefficients)** tabanlı özellik çıkarımı
-- Deepfake ses tespiti
-- Spoof/Bonafide sınıflandırması
-- 16kHz örnekleme hızı ile optimizasyon
+</div>
 
-## 📋 Gereksinimler
+---
 
-### Sistem Gereksinimleri
-- Python 3.8 veya üzeri
-- CUDA destekli GPU (önerilen, CPU üzerinde de çalışır)
-- 8GB+ RAM (GPU kullanımı için 4GB+ VRAM önerilir)
+## ✨ Neler Değişti?
 
-### Python Kütüphaneleri
-Detaylı liste için `requirements.txt` dosyasına bakınız.
+> Bu sürüm, projenin **Gradio → Streamlit** geçişini, dört bağımsız sinir ağı modelini ve Hugging Face Spaces üzerinde çalışan canlı demoyu kapsamaktadır.
+
+| Özellik | Eski (Gradio) | Yeni (Streamlit) |
+|---|---|---|
+| Arayüz | Gradio Blocks | Streamlit + özel CSS teması |
+| Model yükleme | Yerel dosya | HuggingFace Hub (`hf_hub_download`) |
+| Modeller | Ses + Görsel + Video | **Ses + Görsel + Video + Metin** |
+| Analitik | Yok | HF Dataset üzerinde kalıcı kayıt |
+| Demo | — | [🤗 HF Spaces](https://huggingface.co/spaces/AI-BUSTER/AI-BUSTER) |
+
+---
+
+## 🏗 Sistem Mimarisi
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  Streamlit Arayüzü                  │
+│         (Dosya yükle  ·  Metin gir)                 │
+└────────────────────┬────────────────────────────────┘
+                     │  uzantıya göre otomatik yönlendirme
+        ┌────────────┼────────────┬────────────────┐
+        ▼            ▼            ▼                ▼
+   🎵 Ses        🖼 Görsel    🎬 Video         📝 Metin
+     Modeli          Modeli      Modeli            Modeli
+        │            │            │                │
+        └────────────┴────────────┴────────────────┘
+                     │
+          HuggingFace Hub (model ağırlıkları)
+          HuggingFace Dataset (analitik & feedback)
+```
+
+---
+
+## 🤖 Modeller
+
+### 🎵 Ses Modeli
+
+Çift akışlı mimari; ham ses ve spektral özellikleri **paralel** işler.
+
+| Bileşen | Detay |
+|---|---|
+| **Kol A** | `facebook/wav2vec2-xls-r-300m` (~300M param) |
+| **Kol B** | LFCC-LCNN (MFM aktivasyon, residual bloklar) |
+| **Füzyon** | Cross-Modal Attention Fusion |
+| **LFCC** | 60 katsayı + Δ + ΔΔ → 180 boyut |
+| **Chunking** | 4 sn pencere, %50 örtüşme |
+| **VAD** | Enerji tabanlı, 100 ms minimum konuşma |
+
+```
+Ham ses → VAD → 4s Chunk → [Wav2Vec XLS-R | LFCC-LCNN] → Attention Fusion → P(fake)
+```
+
+**Özellikler:** TTA (5 augmentation), MC Dropout (uncertainty), Grad-CAM (yorumlanabilirlik), FGSM/PGD adversarial robustness
+
+---
+
+### 🖼 Görsel Modeli
+
+| Bileşen | Detay |
+|---|---|
+| **Backbone** | `google/siglip2-so400m-patch14-384` |
+| **Classifier** | `hidden×3 → 768 → 384 → 128 → 1` |
+| **Pooling** | Mean + Max → concat → `hidden×2` |
+| **Image Size** | 336×336 px |
+| **Augmentation** | 11-teknik havuz (FrequencyAugment dahil) |
+| **Sampler** | WeightedRandomSampler (sınıf dengesi) |
+| **Loss** | Focal Loss (γ=1.5, α=0.50) + Label Smoothing |
+
+**Eğitim detayları:** Progressive unfreeze, SWA, Mixup + CutMix, Cosine Annealing Warm Restarts, Stochastic Depth, 
+
+---
+
+### 🎬 Video Modeli
+
+| Bileşen | Detay |
+|---|---|
+| **Spatial** | `EfficientNet-B5` (RGB) + `FrequencyStreamCNN` (frekans) |
+| **Temporal** | 6 katmanlı Transformer Encoder (8 kafa) |
+| **Dikkat havuzu** | MultiheadAttention (öğrenilebilir sorgu) |
+| **Çerçeve sayısı** | 12 çerçeve / video |
+| **Frekans özellikleri** | DoG + Laplacian + RGB tutarsızlık haritası |
+| **Füzyon** | Öğrenilebilir gate (RGB ⊙ gate + freq ⊙ (1-gate)) |
+
+```
+Video → Çerçeve örnekleme → [EfficientNet-B5 | FreqCNN] → Gate Fusion
+     → Temporal Transformer → Attention Pooling → P(fake)
+```
+
+---
+
+### 📝 Metin Modeli
+
+| Bileşen | Detay |
+|---|---|
+| **Backbone** | `dbmdz/bert-base-turkish-cased` |
+| **Stil özellikleri** | 12 adet (TTR, bigram tekrar, AI bağlaçları vb.) |
+| **Mimari** | BERT CLS + Stil MLP → Classifier |
+| **Eşik** | `AI_THRESHOLD = 0.85` |
+| **Minimum metin** | 150 kelime |
+| **Dil** | Türkçe odaklı |
+
+**12 stil özelliği:** ortalama/std cümle uzunluğu, type-token ratio, virgül/noktalama oranı, paragraf sayısı, bigram tekrar, AI bağlaç sıklığı, kelime uzunluğu
+
+---
 
 ## 🚀 Kurulum
 
-### 1. Depoyu Klonlayın
+### Gereksinimler
+
 ```bash
-git clone https://github.com/YusufCaganCeylan/aidetector.git
-cd aidetector
+Python >= 3.10
+CUDA 11.8+ (önerilir)
 ```
 
-### 2. Sanal Ortam Oluşturun (Önerilen)
+### Ortam kurulumu
+
 ```bash
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# Linux/Mac
-source venv/bin/activate
-```
-
-### 3. Gerekli Kütüphaneleri Yükleyin
-```bash
+git clone https://github.com/YusufCaganCeylan/AI-BUSTER.git
+cd AI-BUSTER
 pip install -r requirements.txt
 ```
 
-### 4. Model Dosyalarını İndirin
-Model Dosyalarını Aşağıdaki Bağlantıdan İndirebilirsini:
-https://drive.google.com/drive/folders/1bF6xN905j95U1yEFL5UhfhPaORtY5Lm-?usp=sharing 
+### Ortam değişkenleri
 
-## 💻 Kullanım
-
-### Web Arayüzü (Gradio)
 ```bash
-python app.py
+# .env dosyası veya ortam değişkeni olarak tanımlayın
+export HF_TOKEN="hf_..."        # Model indirme (okuma)
+export HF_TOKEN_W="hf_..."      # Analitik yazma (write)
 ```
-Tarayıcınızda `http://127.0.0.1:7860` adresini açın.
 
-### Video Modeli Eğitimi
+### Uygulamayı başlatın
+
 ```bash
-python Video_train.py
+streamlit run app.py
 ```
 
-#### Veri Seti Yapısı
-```
-data/
-├── real/          # Gerçek videolar
-│   ├── video1.mp4
-│   ├── video2.avi
-│   └── ...
-└── fake/          # AI-üretimi videolar
-    ├── video1.mp4
-    ├── video2.avi
-    └── ...
-```
+---
 
-### Desteklenen Dosya Formatları
-- **Görsel:** `.jpg`, `.jpeg`, `.png`, `.webp`, `.bmp`
-- **Video:** `.mp4`, `.mov`, `.avi`, `.mkv`
-- **Ses:** `.wav` (Yalnızca WAV formatı desteklenir)
-
-## 🏗️ Proje Yapısı
+## 📦 Bağımlılıklar
 
 ```
-aidetector/
-├── app.py                      # Ana Gradio web arayüzü
-├── Video_train.py              # Video model eğitim scripti
-├── requirements.txt            # Python bağımlılıkları
-├── README.md                   # Proje dokümantasyonu
-├── LICENSE                     # Lisans dosyası
-├── logo.jpeg                   # Proje logosu
-├── image_detector/             # Görsel tespit modülü
-│   ├── detectors/             # Detector mimarileri
-│   ├── loss/                  # Loss fonksiyonları
-│   ├── metrics/               # Metrik hesaplamaları
-│   ├── networks/              # Sinir ağı modelleri
-│   ├── training/              # Eğitim konfigürasyonları
-│   └── utils/                 # Yardımcı fonksiyonlar
-└── test/                      # Test dosyaları
+streamlit
+torch
+transformers
+librosa
+opencv-python
+albumentations
+scikit-learn
+huggingface_hub
+pdfplumber
+python-docx
+numpy
 ```
 
-## 🎯 Model Mimarileri
+---
 
-### Görsel Tespit Modeli
-- **Backbone:** CLIP ResNet-50
-- **Framework:** EFFORT (EFficient rObust deepFake detecTor)
-- **Input Size:** 224x224
-- **Normalization:** CLIP standardı
+## 📁 Dosya Yapısı
 
-### Video Tespit Modeli
-- **Spatial Extractor:** EfficientNet-B3 (1536 dim)
-- **Temporal Encoder:** Transformer (8 heads, 4 layers)
-- **Attention Pooling:** Multi-head Attention
-- **Classifier:** 4-layer MLP (512→256→64→1)
-- **Optical Flow:** Lucas-Kanade method
-- **Sequence Length:** 4-10 frame (GPU'ya göre otomatik)
+```
+AI-BUSTER/
+├── app.py                        # Ana Streamlit uygulaması
+├── logo.jpg                      # Uygulama logosu
+├── requirements.txt
+│
+├── training/                     # Eğitim scriptleri
+│   ├── train_audio.py            # Ses modeli eğitimi
+│   ├── train_image.py            # Görsel modeli eğitimi
+│   ├── train_video.py            # Video modeli eğitimi
+│   └── train_text.py             # Metin modeli eğitimi
+│
+└── README.md
+```
 
-### Ses Tespit Modeli
-- **Feature Extraction:** LFCC (40 coefficients)
-- **Architecture:** 4-layer MLP
-- **Input Dimension:** 12840
-- **Sample Rate:** 16kHz
-- **Duration:** 4 saniye (64000 sample)
+---
 
-## 📊 Eğitim Özellikleri
+## 🤗 Hugging Face
 
-### Video Model Eğitimi
-- **Otomatik GPU Optimizasyonu:** A100, V100, T4 GPU'ları için özel ayarlar
-- **Gradient Checkpointing:** Bellek optimizasyonu
-- **Mixed Precision Training:** AMP desteği
-- **Data Augmentation:** Albumentations kütüphanesi
-- **Loss Functions:** 
-  - Label Smoothing BCE
-  - Focal Loss
-- **Optimizer:** AdamW
-- **Scheduler:** Cosine Annealing with Warm Restarts
-- **Early Stopping:** Patience-based
+| Kaynak | Bağlantı |
+|---|---|
+| **Demo (Spaces)** | [AI-BUSTER/AI-BUSTER](https://huggingface.co/spaces/AI-BUSTER/AI-BUSTER) |
+| **Model ağırlıkları** | [AI-BUSTER/AI-BUSTER_Models](https://huggingface.co/AI-BUSTER/AI-BUSTER_Models) |
+| **Analitik dataset** | `YusufCaganCeylan/AI-BUSTER_Analytics` |
 
-### Veri Artırma (Augmentation)
-- Horizontal Flip
-- Random Brightness/Contrast
-- Gaussian Noise
-- Random Gamma
-- JPEG Compression
-- Blur
-- Shift/Scale/Rotate
+### HF'den indirilen dosyalar
 
-## 📈 Performans
+| Dosya | Model |
+|---|---|
+| `audio_model.pth` | Ses dedektörü |
+| `video_model.pth` | Video dedektörü |
+| `image_model.pth` | Görsel dedektörü |
+| `text_model.pth` | Metin dedektörü |
+| `scaler.pkl` | Metin stil özelliği normalize edici |
 
-Model performansı, eğitim sırasında otomatik olarak grafiklerle görselleştirilir:
-- `training_history.png` - Loss ve accuracy grafikleri
-- `confusion_matrix_latest.png` - Confusion matrix
-- `detailed_metrics.png` - Detaylı metrikler ve overfitting analizi
-- `training.log` - Eğitim logları
+---
 
-## 🔬 Özellik Çıkarımı
+## 🖥 Arayüz Özellikleri
 
-### Video İşleme
-1. **Frekans Özellikleri:**
-   - DCT (Discrete Cosine Transform)
-   - Sobel kenar tespiti
-   - Renk varyansı analizi
+- **Otomatik mod tespiti** — Dosya uzantısına göre model seçimi (mp3/wav → Ses, jpg/png → Görsel, mp4 → Video, txt/pdf → Metin)
+- **Donut grafik** — Sahte olasılığını görsel olarak gösterir
+- **Son 5 analiz kaydı** — Oturum geçmişi
+- **Geri bildirim modülü** — Tahmin doğruluğunu kullanıcı değerlendirir, HF Dataset'e kaydedilir
+- **Kalıcı analitik** — `total_analyzed` ve `deepfake_hits` sayaçları HF üzerinde saklanır
 
-2. **Hareket Özellikleri:**
-   - Optical flow (Lucas-Kanade)
-   - Hareket büyüklüğü
-   - Hareket açısı
-   - Tutarlılık skoru
+---
 
-### Görsel İşleme
-- CLIP normalizasyonu
-- Frekans domeni analizi
-- Transfer learning
+## 📊 Desteklenen Formatlar
 
-### Ses İşleme
-- LFCC özellik çıkarımı
-- 16kHz resampling
-- Sabit uzunluk padding
+| Mod | Uzantılar |
+|---|---|
+| 🎵 Ses | `mp3`, `wav`, `flac`, `ogg`, `m4a` |
+| 🎬 Video | `mp4`, `mov`, `avi`, `mkv`, `webm` |
+| 🖼 Görsel | `jpg`, `jpeg`, `png`, `webp`, `bmp` |
+| 📝 Metin | `txt`, `pdf`, `docx`, `md` |
 
-## 🛠️ Yapılandırma
+---
 
-### GPU Otomatik Yapılandırma
-Sistem, GPU'nuz otomatik algılar ve en uygun ayarları yapar:
+## ⚠️ Sorumluluk Reddi
 
-| GPU       | Batch Size | Seq Length | Workers |
-|-----------|-----------|------------|---------|
-| A100 80GB | 32        | 8          | 4       |
-| A100 40GB | 24        | 6          | 4       |
-| V100      | 12        | 5          | 2       |
-| T4        | 8         | 4          | 2       |
-| CPU       | 4         | 3          | 2       |
+Bu araç yardımcı bir tespit sistemidir. Çıktılar kesin hukuki ya da adli kanıt niteliği taşımaz. Kritik kararlar için uzman değerlendirmesi önerilir.
 
-### Hiperparametre Otomatik Ölçekleme
-Veri seti boyutuna göre otomatik ayar:
+---
 
-| Veri Seti   | Epoch | Learning Rate | Label Smoothing |
-|-------------|-------|---------------|-----------------|
-| <5K         | 5     | 1e-4          | 0.15            |
-| 5K-15K      | 30    | 1e-4          | 0.1             |
-| 15K-50K     | 50    | 2e-4          | 0.1             |
-| 50K+        | 100   | 3e-4          | 0.05            |
+<div align="center">
 
+**AI-BUSTER** — Yapay zekaya karşı yapay zeka
 
+*Streamlit · PyTorch · HuggingFace · Wav2Vec2 · SigLIP2 · EfficientNet · BERT*
 
-## 📝 Lisans
-
-Bu proje [LICENSE](LICENSE) dosyasında belirtilen lisans altında dağıtılmaktadır.
-
-
-## 📚 Referanslar
-
-- EFFORT: Efficient and Robust deepFake detecTor
-- EfficientNet: Rethinking Model Scaling for CNNs
-- Attention Is All You Need (Transformer)
-- CLIP: Connecting Text and Images
-
+</div>

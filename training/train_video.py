@@ -180,11 +180,47 @@ class TrainingConfig:
 config = TrainingConfig()
 
 
+def get_dct_features(img_rgb: np.ndarray) -> np.ndarray:
+    try:
+        gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY).astype(np.float32) / 255.0
+        H, W = gray.shape
+
+        # 2D DCT (satır + sütun bazlı)
+        dct_map = fftpack.dct(fftpack.dct(gray, axis=0, norm='ortho'), axis=1, norm='ortho')
+
+        # Frekans bandı maskeleri (H x W üzerinde radyal mesafe)
+        cy, cx = H // 2, W // 2
+        ys = np.arange(H, dtype=np.float32)
+        xs = np.arange(W, dtype=np.float32)
+        dist = np.sqrt((ys[:, None] - 0) ** 2 + (xs[None, :] - 0) ** 2)
+        max_dist = np.sqrt(H ** 2 + W ** 2)
+        dist_norm = dist / (max_dist + EPSILON)   # [0, 1]
+
+        low_mask  = dist_norm < 0.15              # DC + düşük frekanslar
+        mid_mask  = (dist_norm >= 0.15) & (dist_norm < 0.45)
+        high_mask = dist_norm >= 0.45
+
+        abs_dct = np.abs(dct_map)
+
+        def band(mask):
+            b = abs_dct * mask
+            return (b / (b.max() + EPSILON)).astype(np.float32)
+
+        ch_low  = band(low_mask)    # düşük frekans enerjisi
+        ch_mid  = band(mid_mask)    # orta frekans (GAN artifact bölgesi)
+        ch_high = band(high_mask)   # yüksek frekans gürültüsü
+
+        return np.stack([ch_low, ch_mid, ch_high], axis=-1)
+    except Exception:
+        return np.zeros((img_rgb.shape[0], img_rgb.shape[1], 3), dtype=np.float32)
+
+
 def get_frequency_features(img_rgb: np.ndarray) -> np.ndarray:
     try:
         gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
         gf = gray.astype(np.float32) / 255.0
 
+        # --- Uzamsal kanallar (mevcut) ---
         b1 = cv2.GaussianBlur(gf, (3, 3), 0.5)
         b2 = cv2.GaussianBlur(gf, (7, 7), 1.5)
         b3 = cv2.GaussianBlur(gf, (11, 11), 3.0)
@@ -201,9 +237,14 @@ def get_frequency_features(img_rgb: np.ndarray) -> np.ndarray:
         incon = (np.abs(gr - gg) + np.abs(gg - gb_)) / 2.0
         ch2 = (incon / (incon.max() + EPSILON)).astype(np.float32)
 
-        return np.stack([ch0, ch1, ch2], axis=-1).astype(np.float32)
+        # --- DCT kanalları (yeni) ---
+        dct_feats = get_dct_features(img_rgb)   # (H, W, 3)
+
+        return np.concatenate(
+            [np.stack([ch0, ch1, ch2], axis=-1), dct_feats], axis=-1
+        ).astype(np.float32)   # (H, W, 6)
     except Exception:
-        return np.zeros((img_rgb.shape[0], img_rgb.shape[1], 3), dtype=np.float32)
+        return np.zeros((img_rgb.shape[0], img_rgb.shape[1], 6), dtype=np.float32)
 
 
 def extract_dense_optical_flow(prev_gray: np.ndarray, curr_gray: np.ndarray) -> np.ndarray:
@@ -291,7 +332,8 @@ class DualStreamVideoDataset(Dataset):
             ])
 
     def _dummy(self, label: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        ch = 9 if self.use_flow else 6
+        # rgb=3, freq=6(spatial+DCT), flow=3(optional)
+        ch = 12 if self.use_flow else 9
         return (
             torch.zeros(self.seq, ch, config.img_size, config.img_size),
             torch.tensor(label, dtype=torch.float32)
@@ -368,8 +410,9 @@ class DualStreamVideoDataset(Dataset):
                     lst.append(lst[-1].clone() if lst else torch.zeros(zero_shape))
 
             zero3 = (3, config.img_size, config.img_size)
+            zero6 = (6, config.img_size, config.img_size)
             _pad(rgb_list, zero3)
-            _pad(freq_list, zero3)
+            _pad(freq_list, zero6)
             if self.use_flow:
                 _pad(flow_list, zero3)
 
@@ -442,7 +485,8 @@ class DualStreamExtractor(nn.Module):
         self.rgb_pool = eff.avgpool
         rgb_dim = 2048
 
-        freq_in = 6 if use_optical_flow else 3
+        # freq stream: 6 kanal (3 uzamsal + 3 DCT); optical flow varsa +3 = 9
+        freq_in = 9 if use_optical_flow else 6
         self.freq_stream = FrequencyStreamCNN(in_ch=freq_in)
         freq_dim = self.freq_stream.feature_dim
 
@@ -465,9 +509,10 @@ class DualStreamExtractor(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, S = x.shape[:2]
         rgb_in = x[:, :, :3].reshape(B * S, 3, x.size(3), x.size(4))
-        freq_in = x[:, :, 3:6]
-        if self.use_flow and x.size(2) > 6:
-            freq_in = torch.cat([freq_in, x[:, :, 6:9]], dim=2)
+        # freq: 6 kanal (uzamsal + DCT); flow varsa sonraki 3 kanal eklenir
+        freq_in = x[:, :, 3:9]
+        if self.use_flow and x.size(2) > 9:
+            freq_in = torch.cat([freq_in, x[:, :, 9:12]], dim=2)
         freq_in = freq_in.reshape(B * S, -1, x.size(3), x.size(4))
 
         if self.use_ckpt and self.training:

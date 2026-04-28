@@ -81,7 +81,7 @@ Ham ses → VAD → 4s Chunk → [Wav2Vec XLS-R | LFCC-LCNN] → Attention Fusio
 | Bileşen | Detay |
 |---|---|
 | **Backbone** | `google/siglip2-so400m-patch14-384` |
-| **Classifier** | `hidden×3 → 768 → 384 → 128 → 1` |
+| **Classifier** | `hidden×2 → 512 → 256 → 64 → 1` |
 | **Pooling** | Mean + Max → concat → `hidden×2` |
 | **Image Size** | 336×336 px |
 | **Augmentation** | 11-teknik havuz (FrequencyAugment dahil) |

@@ -98,16 +98,17 @@ Raw audio → VAD → 4s Chunk → [Wav2Vec XLS-R | LFCC-LCNN] → Attention Fus
 
 | Component | Detail |
 |---|---|
-| **Spatial** | `EfficientNet-B5` (RGB) + `FrequencyStreamCNN` (frequency) |
-| **Temporal** | 6-layer Transformer Encoder (8 heads) |
-| **Attention pooling** | MultiheadAttention (learnable query) |
+| **Spatial** | `EfficientNet-B5` (RGB) + `FrequencyStreamCNN` (frequency + DCT + optical flow) |
+| **Temporal** | 6-layer Transformer Encoder (8 heads) + learnable frame-difference injection |
+| **Attention pooling** | MultiheadAttention (mean-pooled query over the sequence) |
 | **Frame count** | 12 frames / video |
-| **Frequency features** | DoG + Laplacian + RGB inconsistency map |
-| **Fusion** | Learnable gate (RGB ⊙ gate + freq ⊙ (1-gate)) |
+| **Frequency features** | DoG + Laplacian + RGB inconsistency map (3 ch) + DCT low/mid/high frequency bands (3 ch) → 6 ch total |
+| **Optical flow** | Dense (Farneback) — magnitude + angle + consistency, optional (+3 ch) |
+| **Fusion** | Two independent learnable gates (RGB and frequency streams each gated separately, then concatenated and projected) |
 
 ```
-Video → Frame sampling → [EfficientNet-B5 | FreqCNN] → Gate Fusion
-     → Temporal Transformer → Attention Pooling → P(fake)
+Video → Frame sampling → [EfficientNet-B5 | FreqCNN (DoG+Laplacian+RGB-inconsistency+DCT+OpticalFlow)]
+     → Independent Gate Fusion → Temporal Transformer → Attention Pooling (mean query) → P(fake)
 ```
 
 ---
@@ -223,7 +224,7 @@ AI-BUSTER/
 - **Donut chart** — Visually displays the fake probability
 - **Last 5 analysis records** — Session history
 - **Feedback module** — Users rate prediction accuracy, saved to HF Dataset
-- **Persistent analytics** — `total_analyzed` and `deepfake_hits` counters stored on HF
+- **Persistent analytics** — `total_analyzed` and `ai_detections` counters stored on HF
 
 ---
 

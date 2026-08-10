@@ -14,22 +14,22 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
 
-*Ses · Görsel · Video · Metin — tek arayüzde dört modda gerçek zamanlı deepfake tespiti*
+*Ses · Görüntü · Video · Metin — dört modda, tek arayüzde gerçek zamanlı deepfake tespiti*
 
 </div>
 
 ---
 
-## ✨ Neler Değişti?
+## ✨ Yenilikler
 
-> Bu sürüm, projenin **Gradio → Streamlit** geçişini, dört bağımsız sinir ağı modelini ve Hugging Face Spaces üzerinde çalışan canlı demoyu kapsamaktadır.
+> Bu sürüm, projenin **Gradio → Streamlit** geçişini, dört bağımsız sinir ağı modelini ve Hugging Face Spaces üzerinde çalışan canlı bir demoyu kapsıyor.
 
 | Özellik | Eski (Gradio) | Yeni (Streamlit) |
 |---|---|---|
 | Arayüz | Gradio Blocks | Streamlit + özel CSS teması |
 | Model yükleme | Yerel dosya | HuggingFace Hub (`hf_hub_download`) |
-| Modeller | Ses + Görsel + Video | **Ses + Görsel + Video + Metin** |
-| Analitik | Yok | HF Dataset üzerinde kalıcı kayıt |
+| Modeller | Ses + Görüntü + Video | **Ses + Görüntü + Video + Metin** |
+| Analitik | Yok | HF Dataset üzerinde kalıcı loglama |
 | Demo | — | [🤗 HF Spaces](https://huggingface.co/spaces/AI-BUSTER/AI-BUSTER) |
 
 ---
@@ -39,18 +39,18 @@
 ```
 ┌─────────────────────────────────────────────────────┐
 │                  Streamlit Arayüzü                  │
-│         (Dosya yükle  ·  Metin gir)                 │
+│         (Dosya Yükle  ·  Metin Gir)                 │
 └────────────────────┬────────────────────────────────┘
                      │  uzantıya göre otomatik yönlendirme
         ┌────────────┼────────────┬────────────────┐
         ▼            ▼            ▼                ▼
-   🎵 Ses        🖼 Görsel    🎬 Video         📝 Metin
-     Modeli          Modeli      Modeli            Modeli
+   🎵 Ses         🖼 Görüntü   🎬 Video         📝 Metin
+     Modeli         Modeli      Modeli           Modeli
         │            │            │                │
         └────────────┴────────────┴────────────────┘
                      │
           HuggingFace Hub (model ağırlıkları)
-          HuggingFace Dataset (analitik & feedback)
+          HuggingFace Dataset (analitik & geri bildirim)
 ```
 
 ---
@@ -59,38 +59,38 @@
 
 ### 🎵 Ses Modeli
 
-Çift akışlı mimari; ham ses ve spektral özellikleri **paralel** işler.
+Çift akışlı mimari; ham ses ve spektral özellikleri **paralel** olarak işler.
 
 | Bileşen | Detay |
 |---|---|
-| **Kol A** | `facebook/wav2vec2-xls-r-300m` (~300M param) |
-| **Kol B** | LFCC-LCNN (MFM aktivasyon, residual bloklar) |
+| **Kol A** | `facebook/wav2vec2-xls-r-300m` (~300M parametre) |
+| **Kol B** | LFCC-LCNN (MFM aktivasyonu, residual bloklar) |
 | **Füzyon** | Cross-Modal Attention Fusion |
 | **LFCC** | 60 katsayı + Δ + ΔΔ → 180 boyut |
-| **Chunking** | 4 sn pencere, %50 örtüşme |
-| **VAD** | Enerji tabanlı, 100 ms minimum konuşma |
+| **Parçalama** | 4 saniyelik pencere, %50 örtüşme |
+| **VAD** | Enerji tabanlı, minimum 100 ms konuşma |
 
 ```
-Ham ses → VAD → 4s Chunk → [Wav2Vec XLS-R | LFCC-LCNN] → Attention Fusion → P(fake)
+Ham ses → VAD → 4s Parça → [Wav2Vec XLS-R | LFCC-LCNN] → Attention Fusion → P(sahte)
 ```
 
-**Özellikler:** TTA (5 augmentation), MC Dropout (uncertainty), Grad-CAM (yorumlanabilirlik), FGSM/PGD adversarial robustness
+**Özellikler:** TTA (5 augmentasyon), MC Dropout (belirsizlik), Grad-CAM (yorumlanabilirlik), FGSM/PGD adversarial dayanıklılık
 
 ---
 
-### 🖼 Görsel Modeli
+### 🖼 Görüntü Modeli
 
 | Bileşen | Detay |
 |---|---|
-| **Backbone** | `google/siglip2-so400m-patch14-384` |
-| **Classifier** | `hidden×2 → 512 → 256 → 64 → 1` |
+| **Omurga** | `google/siglip2-so400m-patch14-384` |
+| **Sınıflandırıcı** | `hidden×2 → 512 → 256 → 64 → 1` |
 | **Pooling** | Mean + Max → concat → `hidden×2` |
-| **Image Size** | 336×336 px |
-| **Augmentation** | 11-teknik havuz (FrequencyAugment dahil) |
-| **Sampler** | WeightedRandomSampler (sınıf dengesi) |
-| **Loss** | Focal Loss (γ=1.5, α=0.50) + Label Smoothing |
+| **Görüntü Boyutu** | 336×336 px |
+| **Augmentasyon** | 11 teknikten oluşan havuz (FrequencyAugment dahil) |
+| **Örnekleyici** | WeightedRandomSampler (sınıf dengeleme) |
+| **Kayıp Fonksiyonu** | Focal Loss (γ=1.5, α=0.50) + Label Smoothing |
 
-**Eğitim detayları:** Progressive unfreeze, SWA, Mixup + CutMix, Cosine Annealing Warm Restarts, Stochastic Depth, 
+**Eğitim detayları:** Aşamalı çözme (progressive unfreeze), SWA, Mixup + CutMix, Cosine Annealing Warm Restarts, Stochastic Depth
 
 ---
 
@@ -98,16 +98,17 @@ Ham ses → VAD → 4s Chunk → [Wav2Vec XLS-R | LFCC-LCNN] → Attention Fusio
 
 | Bileşen | Detay |
 |---|---|
-| **Spatial** | `EfficientNet-B5` (RGB) + `FrequencyStreamCNN` (frekans) |
-| **Temporal** | 6 katmanlı Transformer Encoder (8 kafa) |
-| **Dikkat havuzu** | MultiheadAttention (öğrenilebilir sorgu) |
-| **Çerçeve sayısı** | 12 çerçeve / video |
-| **Frekans özellikleri** | DoG + Laplacian + RGB tutarsızlık haritası |
-| **Füzyon** | Öğrenilebilir gate (RGB ⊙ gate + freq ⊙ (1-gate)) |
+| **Uzamsal (Spatial)** | `EfficientNet-B5` (RGB) + `FrequencyStreamCNN` (frekans + DCT + optical flow) |
+| **Zamansal (Temporal)** | 6 katmanlı Transformer Encoder (8 head) + öğrenilebilir kare-farkı (frame-difference) enjeksiyonu |
+| **Attention pooling** | MultiheadAttention (sekans üzerinden ortalaması alınmış query) |
+| **Kare sayısı** | 12 kare / video |
+| **Frekans özellikleri** | DoG + Laplacian + RGB tutarsızlık haritası (3 kanal) + DCT düşük/orta/yüksek frekans bantları (3 kanal) → toplam 6 kanal |
+| **Optical flow** | Dense (Farneback) — büyüklük + açı + tutarlılık, opsiyonel (+3 kanal) |
+| **Füzyon** | İki bağımsız öğrenilebilir gate (RGB ve frekans akışları ayrı ayrı gate'lenir, ardından birleştirilip projekte edilir) |
 
 ```
-Video → Çerçeve örnekleme → [EfficientNet-B5 | FreqCNN] → Gate Fusion
-     → Temporal Transformer → Attention Pooling → P(fake)
+Video → Kare örnekleme → [EfficientNet-B5 | FreqCNN (DoG+Laplacian+RGB-tutarsızlık+DCT+OpticalFlow)]
+     → Bağımsız Gate Füzyonu → Zamansal Transformer → Attention Pooling (ortalama query) → P(sahte)
 ```
 
 ---
@@ -116,14 +117,14 @@ Video → Çerçeve örnekleme → [EfficientNet-B5 | FreqCNN] → Gate Fusion
 
 | Bileşen | Detay |
 |---|---|
-| **Backbone** | `dbmdz/bert-base-turkish-cased` |
-| **Stil özellikleri** | 12 adet (TTR, bigram tekrar, AI bağlaçları vb.) |
-| **Mimari** | BERT CLS + Stil MLP → Classifier |
+| **Omurga** | `dbmdz/bert-base-turkish-cased` |
+| **Stil özellikleri** | 12 özellik (TTR, bigram tekrarı, AI bağlaçları vb.) |
+| **Mimari** | BERT CLS + Stil MLP → Sınıflandırıcı |
 | **Eşik** | `AI_THRESHOLD = 0.85` |
 | **Minimum metin** | 150 kelime |
 | **Dil** | Türkçe odaklı |
 
-**12 stil özelliği:** ortalama/std cümle uzunluğu, type-token ratio, virgül/noktalama oranı, paragraf sayısı, bigram tekrar, AI bağlaç sıklığı, kelime uzunluğu
+**12 stil özelliği:** ortalama/standart sapma cümle uzunluğu, type-token oranı, virgül/noktalama oranı, paragraf sayısı, bigram tekrarı, AI bağlaç sıklığı, kelime uzunluğu
 
 ---
 
@@ -148,11 +149,11 @@ pip install -r requirements.txt
 
 ```bash
 # .env dosyası veya ortam değişkeni olarak tanımlayın
-export HF_TOKEN="hf_..."        # Model indirme (okuma)
+export HF_TOKEN="hf_..."        # Model indirme (read)
 export HF_TOKEN_W="hf_..."      # Analitik yazma (write)
 ```
 
-### Uygulamayı başlatın
+### Uygulamayı çalıştırma
 
 ```bash
 streamlit run app.py
@@ -188,7 +189,7 @@ AI-BUSTER/
 │
 ├── training/                     # Eğitim scriptleri
 │   ├── train_audio.py            # Ses modeli eğitimi
-│   ├── train_image.py            # Görsel modeli eğitimi
+│   ├── train_image.py            # Görüntü modeli eğitimi
 │   ├── train_video.py            # Video modeli eğitimi
 │   └── train_text.py             # Metin modeli eğitimi
 │
@@ -203,7 +204,7 @@ AI-BUSTER/
 |---|---|
 | **Demo (Spaces)** | [AI-BUSTER/AI-BUSTER](https://huggingface.co/spaces/AI-BUSTER/AI-BUSTER) |
 | **Model ağırlıkları** | [AI-BUSTER/AI-BUSTER_Models](https://huggingface.co/AI-BUSTER/AI-BUSTER_Models) |
-| **Analitik dataset** | `YusufCaganCeylan/AI-BUSTER_Analytics` |
+| **Analitik veri seti** | `YusufCaganCeylan/AI-BUSTER_Analytics` |
 
 ### HF'den indirilen dosyalar
 
@@ -211,19 +212,19 @@ AI-BUSTER/
 |---|---|
 | `audio_model.pth` | Ses dedektörü |
 | `video_model.pth` | Video dedektörü |
-| `image_model.pth` | Görsel dedektörü |
+| `image_model.pth` | Görüntü dedektörü |
 | `text_model.pth` | Metin dedektörü |
-| `scaler.pkl` | Metin stil özelliği normalize edici |
+| `scaler.pkl` | Metin stil özelliği normalizeri |
 
 ---
 
 ## 🖥 Arayüz Özellikleri
 
-- **Otomatik mod tespiti** — Dosya uzantısına göre model seçimi (mp3/wav → Ses, jpg/png → Görsel, mp4 → Video, txt/pdf → Metin)
-- **Donut grafik** — Sahte olasılığını görsel olarak gösterir
+- **Otomatik mod tespiti** — Dosya uzantısına göre model seçimi (mp3/wav → Ses, jpg/png → Görüntü, mp4 → Video, txt/pdf → Metin)
+- **Donut grafik** — Sahtelik olasılığını görsel olarak gösterir
 - **Son 5 analiz kaydı** — Oturum geçmişi
-- **Geri bildirim modülü** — Tahmin doğruluğunu kullanıcı değerlendirir, HF Dataset'e kaydedilir
-- **Kalıcı analitik** — `total_analyzed` ve `deepfake_hits` sayaçları HF üzerinde saklanır
+- **Geri bildirim modülü** — Kullanıcılar tahmin doğruluğunu puanlar, HF Dataset'e kaydedilir
+- **Kalıcı analitik** — `total_analyzed` ve `ai_detections` sayaçları HF üzerinde saklanır
 
 ---
 
@@ -233,14 +234,14 @@ AI-BUSTER/
 |---|---|
 | 🎵 Ses | `mp3`, `wav`, `flac`, `ogg`, `m4a` |
 | 🎬 Video | `mp4`, `mov`, `avi`, `mkv`, `webm` |
-| 🖼 Görsel | `jpg`, `jpeg`, `png`, `webp`, `bmp` |
+| 🖼 Görüntü | `jpg`, `jpeg`, `png`, `webp`, `bmp` |
 | 📝 Metin | `txt`, `pdf`, `docx`, `md` |
 
 ---
 
 ## ⚠️ Sorumluluk Reddi
 
-Bu araç yardımcı bir tespit sistemidir. Çıktılar kesin hukuki ya da adli kanıt niteliği taşımaz. Kritik kararlar için uzman değerlendirmesi önerilir.
+Bu araç, yardımcı bir tespit sistemidir. Çıktılar kesin bir hukuki veya adli delil niteliği taşımaz. Kritik kararlar için uzman değerlendirmesi önerilir.
 
 ---
 

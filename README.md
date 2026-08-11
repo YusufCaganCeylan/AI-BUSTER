@@ -14,7 +14,7 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
 
-*Audio · Image · Video · Text — real-time deepfake detection in four modes, one interface*
+*Audio · Image · Video · Text — real-time AI detection in four modes, one interface*
 
 </div>
 

@@ -14,7 +14,7 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org)
 
-*Ses · Görüntü · Video · Metin — dört modda, tek arayüzde gerçek zamanlı deepfake tespiti*
+*Ses · Görüntü · Video · Metin — dört modda, tek arayüzde gerçek zamanlı yapay zeka tespiti*
 
 </div>
 
